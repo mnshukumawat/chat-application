@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chat App</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+  <style>
+    body{margin:0;background:#ece5dd;font-family:Arial}
+    .container{display:flex;height:100vh}
+
+    .users{
+      width:30%;
+      background:#fff;
+      border-right:1px solid #ccc;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .users-top{
+      padding:10px;
+      border-bottom:1px solid #ddd;
+    }
+
+    .users-top input{
+      width:100%;
+      padding:8px;
+      margin-bottom:8px;
+      box-sizing:border-box;
+    }
+
+    .user-list{
+      flex:1;
+      overflow-y:auto;
+    }
+
+    .user{
+      padding:15px;
+      cursor:pointer;
+      border-bottom:1px solid #eee;
+      display:flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .user:hover{background:#f0f0f0}
+
+    .chat{width:70%;display:flex;flex-direction:column}
+
+    .chat-header{
+      padding:15px;
+      background:#075e54;
+      color:white;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+    }
+
+    .chat-messages{flex:1;padding:10px;overflow-y:auto}
+
+    .message{
+      max-width:60%;
+      padding:8px 10px;
+      margin:6px;
+      border-radius:8px;
+      cursor:pointer;
+      font-size:14px;
+      position: relative;
+    }
+    .right{background:#dcf8c6;margin-left:auto;text-align:right}
+    .left{background:#fff;margin-right:auto}
+    .selected{border:2px solid red}
+
+    .chat-input{display:flex;padding:10px;background:#f0f0f0}
+    .chat-input input{flex:1;padding:8px}
+    .chat-input button{padding:8px 12px;margin-left:5px}
+
+    /* MESSAGE STATUS */
+    .status {
+      font-size: 10px;
+      color: gray;
+      position: absolute;
+      bottom: 2px;
+      right: 5px;
+    }
+
+    /* REQUEST POPUP */
+    .request-popup{
+      display:none;
+      position:fixed;
+      top:0; left:0; width:100%; height:100%;
+      background:rgba(0,0,0,0.5);
+      justify-content:center;
+      align-items:center;
+    }
+    .popup-box{
+      background:#fff; padding:20px; border-radius:8px; text-align:center;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <audio id="notifySound">
+    <source src="/static/sounds/notify.mp3" type="audio/mpeg">
+  </audio>
+
+  <!-- USERS -->
+  <div class="users">
+
+    <div class="users-top">
+      <input type="text" id="searchUser" placeholder="Search user..." onkeyup="searchUsers()">
+      <button class="request-btn" onclick="sendRequest()">Send Request</button>
+    </div>
+
+    <div class="user-list" id="users"></div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="chat">
+
+    <div class="chat-header">
+      <div id="chatHeader">Select user</div>
+      <a href="/logout" class="logout-btn">Logout</a>
+    </div>
+
+    <div class="chat-messages" id="messages"></div>
+
+    <div class="chat-input">
+      <input id="msg" placeholder="Type message...">
+      <button onclick="sendMsg()">Send</button>
+      <button onclick="deleteMsg()">🗑</button>
+    </div>
+  </div>
+</div>
+
+<!-- REQUEST POPUP -->
+<div class="request-popup" id="requestPopup">
+  <div class="popup-box">
+    <p id="requestText"></p>
+    <button onclick="acceptRequest()">Accept</button>
+    <button onclick="rejectRequest()">Reject</button>
+  </div>
+</div>
+
+<script>
+const socket = io();
+const currentUser = "{{ user }}";
+
+let receiver = "";
+let selectedMsgId = null;
+let requestFrom = "";
+let allUsers = [];
+
+/* ---------- SOCKET CONNECT & JOIN ROOM ---------- */
+socket.on('connect', () => {
+  // New users join their own room immediately
+  socket.emit('join', {username: currentUser});
+});
+
+
+/* ---------- LOAD USERS ---------- */
+function loadUsers(){
+  fetch('/users')
+  .then(res => res.json())
+  .then(data => {
+    allUsers = data;
+    renderUsers(data);
+  });
+}
+
+function renderUsers(data){
+  const usersBox = document.getElementById("users");
+  usersBox.innerHTML = "";
+
+  data.forEach(u => {
+    const div = document.createElement("div");
+    div.className = "user";
+
+    const dot = u[1] == 1 ? "🟢" : "⚫";
+    div.innerHTML = `${dot} ${u[0]}`;
+
+    div.onclick = () => {
+      receiver = u[0];
+      document.getElementById("chatHeader").innerText = receiver;
+      loadChat();
+
+      // Join the room of the selected receiver (optional, for direct emits)
+      socket.emit('join', {username: receiver});
+    };
+
+    usersBox.appendChild(div);
+  });
+}
+
+socket.on('user_status_change', loadUsers);
+loadUsers();
+
+/* ---------- SEARCH USER ---------- */
+function searchUsers(){
+  const q = document.getElementById("searchUser").value.toLowerCase();
+  const filtered = allUsers.filter(u => u[0].toLowerCase().includes(q));
+  renderUsers(filtered);
+}
+
+/* ---------- CHAT ---------- */
+function loadChat(){
+  if(receiver === "") return;
+
+  fetch(`/get_messages/${receiver}`)
+  .then(res => res.json())
+  .then(data => {
+    const box = document.getElementById("messages");
+    box.innerHTML = "";
+
+    data.forEach(row => {
+
+      const d = document.createElement("div");
+      d.className = "message " + (row[1] === currentUser ? "right" : "left");
+
+      d.dataset.msgid = row[0];
+
+      d.addEventListener("mousedown", (e) => {
+        if (e.button === 0) selectMessage(d);
+      });
+
+      d.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        selectMessage(d);
+      });
+
+      function selectMessage(el) {
+        document.querySelectorAll(".message")
+          .forEach(m => m.classList.remove("selected"));
+        el.classList.add("selected");
+        selectedMsgId = el.dataset.msgid;
+      }
+
+      let tick = "";
+      if (row[1] === currentUser) {
+        if (row[3] === "sent") tick = "✓";
+        else if (row[3] === "delivered") tick = "✓✓";
+        else if (row[3] === "seen") tick = "<span style='color:#2196f3'>✓✓</span>";
+      }
+
+      d.innerHTML = `
+        <div>${row[2]}</div>
+        <div class="status">${tick}</div>
+      `;
+
+      box.appendChild(d);
+
+      // 🔹 SEEN LOGIC
+      if (row[1] !== currentUser && row[3] !== "seen") {
+        socket.emit("mark_seen", {sender: row[1], receiver: currentUser});
+      }
+    });
+
+    box.scrollTop = box.scrollHeight;
+  });
+}
+
+/* ---------- SEND MESSAGE ---------- */
+function sendMsg(){
+  if(receiver === "") return alert("Select user");
+  const msg = document.getElementById("msg").value;
+  if(msg.trim() === "") return;
+
+  socket.emit('private_message', {
+    from: currentUser,
+    to: receiver,
+    message: msg
+  });
+  document.getElementById("msg").value = "";
+}
+
+/* ---------- DELETE ---------- */
+function deleteMsg(){
+  if(!selectedMsgId) return alert("Select message to delete");
+  socket.emit('delete_message', {
+    id: selectedMsgId,
+    sender: currentUser,
+    receiver: receiver
+  });
+}
+
+/* ---------- REQUEST SYSTEM ---------- */
+function sendRequest(){
+  if(receiver === ""){
+    alert("Select user first");
+    return;
+  }
+
+  socket.emit('send_request', {
+    from: currentUser,
+    to: receiver
+  });
+
+  alert("Request sent to " + receiver);
+}
+
+socket.on('receive_request', (data) => {
+  requestFrom = data.from;
+  document.getElementById("requestText").innerText =
+    data.from + " sent you a request";
+  document.getElementById("requestPopup").style.display = "flex";
+});
+
+function acceptRequest(){
+  socket.emit('request_response', {
+    from: currentUser,
+    to: requestFrom,
+    response: "accepted"
+  });
+  closePopup();
+}
+
+function rejectRequest(){
+  socket.emit('request_response', {
+    from: currentUser,
+    to: requestFrom,
+    response: "rejected"
+  });
+  closePopup();
+}
+
+function closePopup(){
+  document.getElementById("requestPopup").style.display = "none";
+  requestFrom = "";
+}
+
+/* ---------- SOCKET EVENTS ---------- */
+socket.on('receive_message', data => {
+  if (data.sender === receiver || data.receiver === receiver) {
+    loadChat();
+    document.getElementById("notifySound").play();
+  }
+});
+
+socket.on('status_updated', () => {
+  loadChat();
+});
+
+socket.on('message_deleted', data => {
+  const msg = document.querySelector(`.message[data-msgid='${data.id}']`);
+  if(msg) msg.remove();
+  selectedMsgId = null;
+});
+
+socket.on('request_response', data => {
+  if(data.response === "accepted"){
+    alert(data.from + " accepted your request");
+  } else {
+    alert(data.from + " rejected your request");
+  }
+});
+</script>
+
+</body>
+</html>

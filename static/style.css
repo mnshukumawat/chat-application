@@ -1,0 +1,328 @@
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+body{
+  background:#dadbd3;
+  height:100vh;
+}
+
+/* ===== APP WRAPPER ===== */
+.container{
+  width:100%;
+  height:100vh;
+  display:flex;
+}
+
+/* ===== LEFT SIDEBAR ===== */
+.users{
+  width:30%;
+  background:#ffffff;
+  border-right:1px solid #ddd;
+  overflow-y:auto;
+}
+
+/* HEADER (LEFT) */
+.users::before{
+  content:"WhatsApp";
+  display:block;
+  background:#075e54;
+  color:white;
+  padding:15px;
+  font-size:18px;
+  font-weight:bold;
+}
+
+/* USER ITEM */
+.user{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 15px;
+  cursor:pointer;
+  border-bottom:1px solid #f0f0f0;
+}
+
+.user:hover{
+  background:#f5f5f5;
+}
+
+/* ONLINE DOT */
+.status-dot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:gray;
+}
+
+.user.online .status-dot{
+  background:#25d366;
+}
+
+/* ===== CHAT AREA ===== */
+.chat{
+  width:70%;
+  display:flex;
+  flex-direction:column;
+}
+
+/* CHAT HEADER */
+.chat-header{
+  background:#075e54;
+  color:white;
+  padding:15px;
+  font-size:17px;
+  font-weight:500;
+}
+
+/* CHAT BACKGROUND */
+.chat-messages{
+  flex:1;
+  padding:15px;
+  background:url("https://i.imgur.com/8Y4F6Wg.png");
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+}
+
+/* MESSAGE BUBBLE */
+.message{
+  max-width:65%;
+  padding:8px 10px;
+  margin-bottom:8px;
+  border-radius:7px;
+  font-size:14px;
+  line-height:1.4;
+  word-wrap:break-word;
+  position:relative;
+}
+
+/* RECEIVED */
+.message.left{
+  background:#ffffff;
+  align-self:flex-start;
+  border-top-left-radius:0;
+}
+
+/* SENT */
+.message.right{
+  background:#dcf8c6;
+  align-self:flex-end;
+  border-top-right-radius:0;
+}
+
+/* MESSAGE STATUS */
+.status{
+  font-size:11px;
+  color:gray;
+  text-align:right;
+  margin-top:2px;
+}
+
+/* BLUE TICK */
+.status.seen{
+  color:#34b7f1;
+}
+
+/* SELECTED (DELETE) */
+.selected{
+  border:2px solid red;
+}
+
+/* ===== INPUT AREA ===== */
+.chat-input{
+  display:flex;
+  padding:10px;
+  background:#f0f0f0;
+}
+
+.chat-input input{
+  flex:1;
+  padding:10px;
+  border-radius:20px;
+  border:1px solid #ccc;
+  outline:none;
+}
+
+.chat-input button{
+  margin-left:10px;
+  padding:10px 16px;
+  border:none;
+  border-radius:50%;
+  background:#075e54;
+  color:white;
+  cursor:pointer;
+}
+
+.chat-input button:hover{
+  background:#128c7e;
+}
+
+/* ===== DELETE BUTTON ===== */
+#deleteBtn{
+  position:absolute;
+  top:10px;
+  right:10px;
+  padding:6px 10px;
+  background:#ff4d4d;
+  color:white;
+  border:none;
+  border-radius:5px;
+  cursor:pointer;
+}
+
+#deleteBtn:disabled{
+  background:#ccc;
+  cursor:not-allowed;
+}
+
+/* ===== LOGIN / REGISTER ===== */
+.auth-box{
+  width:320px;
+  background:#ffffff;
+  padding:25px;
+  margin:120px auto;
+  border-radius:8px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.2);
+  text-align:center;
+}
+
+.auth-box h3{
+  margin-bottom:20px;
+  color:#075e54;
+}
+
+.auth-box input{
+  width:100%;
+  padding:10px;
+  margin:10px 0;
+  border-radius:5px;
+  border:1px solid #ccc;
+}
+
+.auth-box button{
+  width:100%;
+  padding:10px;
+  background:#075e54;
+  color:white;
+  border:none;
+  border-radius:5px;
+  cursor:pointer;
+}
+
+.auth-box a{
+  display:block;
+  margin-top:10px;
+  color:#075e54;
+  text-decoration:none;
+}
+
+.chat-header{
+  height:60px;
+  background:#075e54;
+  color:white;
+  display:flex;
+  align-items:center;
+  padding:0 15px;
+}
+
+.chat-user-name{
+  font-size:18px;
+  font-weight:bold;
+}
+
+.chat-actions{
+  margin-left:auto;
+}
+
+.logout-btn{
+  background:white;
+  color:#075e54;
+  padding:6px 14px;
+  border-radius:20px;
+  text-decoration:none;
+  font-size:13px;
+  font-weight:bold;
+}
+
+.logout-btn:hover{
+  background:#e6e6e6;
+}
+
+
+.user{
+  padding:10px;
+  border-bottom:1px solid #ddd;
+  cursor:pointer;
+}
+
+.user-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-weight:bold;
+}
+
+.last-seen{
+  font-size:11px;
+  color:gray;
+  margin-left:22px;
+}
+
+.last-seen{
+  font-size: 12px;
+  color: gray;
+}
+
+
+.request-btn{
+  width:100%;
+  background:#25d366;
+  border:none;
+  padding:8px;
+  margin-top:5px;
+  color:white;
+  cursor:pointer;
+  border-radius:4px;
+  font-weight:bold;
+}
+
+.request-popup{
+  position:fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background:rgba(0,0,0,0.4);
+  display:none;
+  justify-content:center;
+  align-items:center;
+}
+
+.popup-box{
+  background:white;
+  padding:20px;
+  border-radius:8px;
+  text-align:center;
+}
+
+.popup-box button{
+  margin:5px;
+  padding:6px 12px;
+  cursor:pointer;
+}
+
+.tick {
+  font-size: 12px;
+  margin-left: 5px;
+  color: gray;
+}
+
+.tick.seen { color: blue; }
+
+.selected{border:2px solid red}
+
