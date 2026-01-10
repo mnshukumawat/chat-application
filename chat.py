@@ -11,7 +11,7 @@ def get_db():
     return mysql.connector.connect(
         host="localhost",
         user="root",
-        password="maheshkumawat@9116",
+        password="your password",
         database="chat_app",
         autocommit=True
     )
