@@ -2,20 +2,12 @@
 <html>
 <head>
   <title>Login</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="static/style.css">
 </head>
 <body>
 
 <div class="auth-box">
   <h3>Login</h3>
-
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, message in messages %}
-        <div class="flash {{ category }}">{{ message }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
 
   <form method="post">
     <input type="text" name="username" placeholder="Username" required>

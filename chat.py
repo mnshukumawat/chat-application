@@ -6,7 +6,7 @@ app = Flask(__name__)
 app.secret_key = "secret123"
 socketio = SocketIO(app, async_mode='threading')
 
-# ---------------- DB CONNECTION HELPER ----------------
+# ---------------- DB CONNECTION ----------------
 def get_db():
     return mysql.connector.connect(
         host="localhost",
@@ -16,11 +16,11 @@ def get_db():
         autocommit=True
     )
 
-# 🔥 ONLINE USERS TRACK
+# ---------------- ONLINE USERS & SOCKETS ----------------
 online_users = set()
+user_sockets = {}  # username -> set of socket ids
 
 # ---------------- ROUTES ----------------
-
 @app.route('/')
 def home():
     return redirect('/login')
@@ -79,6 +79,7 @@ def logout():
         cursor.close()
         db.close()
         online_users.discard(session['user'])
+        user_sockets.pop(session['user'], None)
         session.pop('user')
     return redirect('/login')
 
@@ -90,6 +91,9 @@ def chat():
 
 @app.route('/users')
 def users():
+    if 'user' not in session:
+        return jsonify({"error": "Login required"}), 401
+
     db = get_db()
     cursor = db.cursor(buffered=True)
     cursor.execute("""
@@ -104,9 +108,11 @@ def users():
 
 @app.route('/get_messages/<receiver>')
 def get_messages(receiver):
+    if 'user' not in session:
+        return jsonify([])
+
     sender = session['user']
 
-    # CHECK IF REQUEST ACCEPTED
     db = get_db()
     cursor = db.cursor(buffered=True)
     cursor.execute("""
@@ -120,7 +126,7 @@ def get_messages(receiver):
     db.close()
 
     if not req or req[0] != "accepted":
-        return jsonify([])  # block chat
+        return jsonify([])
 
     db = get_db()
     cursor = db.cursor(buffered=True)
@@ -137,44 +143,54 @@ def get_messages(receiver):
     return jsonify(data)
 
 # ---------------- SOCKETS ----------------
-
 @socketio.on('connect')
 def on_connect(auth=None):
-    
-    if 'user' in session:
-        online_users.add(session['user'])
-        db = get_db()
-        cursor = db.cursor(buffered=True)
-        cursor.execute(
-            "UPDATE users SET is_online=1 WHERE username=%s",
-            (session['user'],)
-        )
-        db.commit()
-        cursor.close()
-        db.close()
-        emit('user_status_change', broadcast=True)
+    if 'user' not in session:
+        return
+    online_users.add(session['user'])
+    db = get_db()
+    cursor = db.cursor(buffered=True)
+    cursor.execute(
+        "UPDATE users SET is_online=1 WHERE username=%s",
+        (session['user'],)
+    )
+    db.commit()
+    cursor.close()
+    db.close()
+    emit('user_status_change', broadcast=True)
 
 @socketio.on('disconnect')
 def on_disconnect():
-    if 'user' in session:
-        online_users.discard(session['user'])
-        db = get_db()
-        cursor = db.cursor(buffered=True)
-        cursor.execute(
-            "UPDATE users SET is_online=0 WHERE username=%s",
-            (session['user'],)
-        )
-        db.commit()
-        cursor.close()
-        db.close()
-        emit('user_status_change', broadcast=True)
+    if 'user' not in session:
+        return
+    online_users.discard(session['user'])
+    if session['user'] in user_sockets:
+        user_sockets[session['user']].discard(request.sid)
+    db = get_db()
+    cursor = db.cursor(buffered=True)
+    cursor.execute(
+        "UPDATE users SET is_online=0 WHERE username=%s",
+        (session['user'],)
+    )
+    db.commit()
+    cursor.close()
+    db.close()
+    emit('user_status_change', broadcast=True)
 
 @socketio.on('join')
 def join_user(data):
-    join_room(data['username'])
+    if 'user' not in session:
+        return
+    join_room(request.sid)
+    if session['user'] not in user_sockets:
+        user_sockets[session['user']] = set()
+    user_sockets[session['user']].add(request.sid)
 
 @socketio.on('private_message')
 def private_message(data):
+    if 'user' not in session:
+        return
+
     sender = data['from']
     receiver = data['to']
     msg = data['message']
@@ -182,20 +198,23 @@ def private_message(data):
     db = get_db()
     cursor = db.cursor(buffered=True, dictionary=True)
 
-    # Check if request accepted
     cursor.execute("""
-        SELECT status FROM requests
-        WHERE (sender=%s AND receiver=%s)
-           OR (sender=%s AND receiver=%s)
+    SELECT 1 FROM requests
+    WHERE
+    (
+        (sender=%s AND receiver=%s)
+     OR (sender=%s AND receiver=%s)
+    )
+    AND status='accepted'
     """, (sender, receiver, receiver, sender))
-    req = cursor.fetchone()
-    if not req or req['status'] != 'accepted':
+
+    if not cursor.fetchone():
         cursor.close()
         db.close()
-        emit('chat_blocked', room=sender)
+        emit('chat_blocked', room=request.sid)
         return
 
-    # Insert message
+
     cursor.execute("""
         INSERT INTO messages(sender, receiver, message, status)
         VALUES(%s, %s, %s, 'sent')
@@ -203,7 +222,6 @@ def private_message(data):
     msg_id = cursor.lastrowid
     status = 'sent'
 
-    # Mark delivered if receiver online
     if receiver in online_users:
         status = 'delivered'
         cursor.execute("UPDATE messages SET status='delivered' WHERE id=%s", (msg_id,))
@@ -220,11 +238,16 @@ def private_message(data):
         'status': status
     }
 
-    emit('receive_message', payload, room=sender)
-    emit('receive_message', payload, room=receiver)
+    for sid in user_sockets.get(sender, []):
+        emit('receive_message', payload, room=sid)
+    for sid in user_sockets.get(receiver, []):
+        emit('receive_message', payload, room=sid)
 
 @socketio.on('mark_seen')
 def mark_seen(data):
+    if 'user' not in session:
+        return
+
     db = get_db()
     cursor = db.cursor(buffered=True)
     cursor.execute("""
@@ -235,26 +258,36 @@ def mark_seen(data):
     db.commit()
     cursor.close()
     db.close()
-    emit('status_updated', {
-        'sender': data['sender'],
-        'receiver': data['receiver']
-    }, room=data['sender'])
+
+    for sid in user_sockets.get(data['sender'], []):
+        emit('status_updated', {
+            'sender': data['sender'],
+            'receiver': data['receiver']
+        }, room=sid)
 
 @socketio.on('delete_message')
 def delete_message(data):
+    if 'user' not in session:
+        return
+
     db = get_db()
     cursor = db.cursor(buffered=True)
     cursor.execute("DELETE FROM messages WHERE id=%s", (data['id'],))
     db.commit()
     cursor.close()
     db.close()
-    emit('message_deleted', room=data['sender'])
-    emit('message_deleted', room=data['receiver'])
+
+    for sid in user_sockets.get(data['sender'], []):
+        emit('message_deleted', {'id': data['id']}, room=sid)
+    for sid in user_sockets.get(data['receiver'], []):
+        emit('message_deleted', {'id': data['id']}, room=sid)
 
 # ---------------- REQUEST SYSTEM ----------------
-
 @socketio.on('send_request')
 def send_request(data):
+    if 'user' not in session:
+        return
+
     db = get_db()
     cursor = db.cursor(buffered=True)
     cursor.execute("""
@@ -265,10 +298,15 @@ def send_request(data):
     db.commit()
     cursor.close()
     db.close()
-    emit('receive_request', {'from': data['from']}, room=data['to'])
+
+    for sid in user_sockets.get(data['to'], []):
+        emit('receive_request', {'from': data['from']}, room=sid)
 
 @socketio.on('request_response')
 def request_response(data):
+    if 'user' not in session:
+        return
+
     db = get_db()
     cursor = db.cursor(buffered=True)
     cursor.execute("""
@@ -277,13 +315,18 @@ def request_response(data):
         WHERE sender=%s AND receiver=%s
     """, (
         data['response'],
-        data['to'],     # original sender
-        data['from']    # original receiver
+        data['to'],   # original sender
+        data['from']  # original receiver
     ))
     db.commit()
     cursor.close()
     db.close()
-    emit('request_response', data, room=data['to'])
+
+    for sid in user_sockets.get(data['to'], []):
+        emit('request_response', data, room=sid)
+        # send refresh event to sender to enable chat immediately
+        if data['response'] == 'accepted':
+            emit('refresh_allowed_chat', {'with_user': data['from']}, room=sid)
 
 # ---------------- RUN ----------------
 if __name__ == '__main__':

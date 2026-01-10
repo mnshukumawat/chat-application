@@ -7,8 +7,8 @@
 }
 
 body{
-  background:#dadbd3;
-  height:100vh;
+  background: #128C7E;
+  height:0vh;
 }
 
 /* ===== APP WRAPPER ===== */
@@ -18,38 +18,40 @@ body{
   display:flex;
 }
 
-/* ===== LEFT SIDEBAR ===== */
+/*  LEFT SIDEBAR  */
 .users{
   width:30%;
   background:#ffffff;
   border-right:1px solid #ddd;
   overflow-y:auto;
 }
+.users-top {
+  padding:10px;
+  border-bottom:1px solid #ddd;
+}
+.users-top input {
+  width:100%;
+  padding:8px;
+  margin-bottom:8px;
+  box-sizing:border-box;
+}
+.user-list {
+  flex:1;
+  overflow-y:auto;
+}
+
 
 /* HEADER (LEFT) */
 .users::before{
-  content:"WhatsApp";
+  content:"Chat Application";
   display:block;
   background:#075e54;
   color:white;
   padding:15px;
-  font-size:18px;
+  font-size:22px;
   font-weight:bold;
 }
 
-/* USER ITEM */
-.user{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:12px 15px;
-  cursor:pointer;
-  border-bottom:1px solid #f0f0f0;
-}
-
-.user:hover{
-  background:#f5f5f5;
-}
 
 /* ONLINE DOT */
 .status-dot{
@@ -63,7 +65,8 @@ body{
   background:#25d366;
 }
 
-/* ===== CHAT AREA ===== */
+
+/* CHAT AREA  */
 .chat{
   width:70%;
   display:flex;
@@ -77,13 +80,16 @@ body{
   padding:15px;
   font-size:17px;
   font-weight:500;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 /* CHAT BACKGROUND */
 .chat-messages{
   flex:1;
   padding:15px;
-  background:url("https://i.imgur.com/8Y4F6Wg.png");
+  background:#ECE5DD;
   overflow-y:auto;
   display:flex;
   flex-direction:column;
@@ -99,6 +105,7 @@ body{
   line-height:1.4;
   word-wrap:break-word;
   position:relative;
+  cursor: pointer;
 }
 
 /* RECEIVED */
@@ -121,6 +128,8 @@ body{
   color:gray;
   text-align:right;
   margin-top:2px;
+  right: 5px;
+  bottom: 2px;
 }
 
 /* BLUE TICK */
@@ -133,7 +142,7 @@ body{
   border:2px solid red;
 }
 
-/* ===== INPUT AREA ===== */
+/* INPUT AREA */
 .chat-input{
   display:flex;
   padding:10px;
@@ -162,7 +171,7 @@ body{
   background:#128c7e;
 }
 
-/* ===== DELETE BUTTON ===== */
+/* DELETE BUTTON */
 #deleteBtn{
   position:absolute;
   top:10px;
@@ -180,13 +189,13 @@ body{
   cursor:not-allowed;
 }
 
-/* ===== LOGIN / REGISTER ===== */
+/*  LOGIN / REGISTER */
 .auth-box{
   width:320px;
-  background:#ffffff;
+  background:#ECE5DD;
   padding:25px;
   margin:120px auto;
-  border-radius:8px;
+  border-radius:9px;
   box-shadow:0 2px 10px rgba(0,0,0,0.2);
   text-align:center;
 }
@@ -254,10 +263,19 @@ body{
 }
 
 
+/* USER ITEM */
 .user{
-  padding:10px;
-  border-bottom:1px solid #ddd;
+  padding:15px;
   cursor:pointer;
+  border-bottom:1px solid #eee;
+  display:flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor:pointer;
+}
+
+.user:hover{
+  background:#f5f5f5;
 }
 
 .user-row{
@@ -268,17 +286,13 @@ body{
 }
 
 .last-seen{
-  font-size:11px;
+  font-size:12px;
   color:gray;
   margin-left:22px;
 }
 
-.last-seen{
-  font-size: 12px;
-  color: gray;
-}
 
-
+/* REQUEST SEND */
 .request-btn{
   width:100%;
   background:#25d366;
@@ -315,14 +329,3 @@ body{
   padding:6px 12px;
   cursor:pointer;
 }
-
-.tick {
-  font-size: 12px;
-  margin-left: 5px;
-  color: gray;
-}
-
-.tick.seen { color: blue; }
-
-.selected{border:2px solid red}
-
